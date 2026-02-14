@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Video Generator</title>
+<style>
+  :root { --bg: #0f0f0f; --card: #1a1a2e; --border: #2a2a4a; --accent: #7c3aed; --accent-hover: #6d28d9; --text: #e2e8f0; --muted: #94a3b8; --success: #22c55e; --error: #ef4444; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 8px; background: linear-gradient(135deg, #7c3aed, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.9rem; }
+  .config-bar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: end; }
+  .config-bar .field { display: flex; flex-direction: column; gap: 4px; }
+  .config-bar .field label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  select, input[type="text"], input[type="password"], textarea { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+  select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+  select { cursor: pointer; }
+  .row { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: grid; grid-template-columns: 60px 1fr 1fr 1fr auto; gap: 12px; align-items: start; transition: border-color 0.3s; }
+  .row.generating { border-color: var(--accent); }
+  .row.done { border-color: var(--success); }
+  .row.error { border-color: var(--error); }
+  .row-num { font-size: 1.5rem; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: center; height: 100%; }
+  .frame-box { display: flex; flex-direction: column; gap: 6px; }
+  .frame-box label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+  .drop-zone { width: 100%; aspect-ratio: 16/9; border: 2px dashed var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: border-color 0.2s; background-size: cover; background-position: center; }
+  .drop-zone:hover { border-color: var(--accent); }
+  .drop-zone span { color: var(--muted); font-size: 0.75rem; text-align: center; padding: 4px; }
+  .drop-zone.has-image span { display: none; }
+  .drop-zone input { display: none; }
+  .prompt-settings { display: flex; flex-direction: column; gap: 8px; }
+  .prompt-settings textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+  .prompt-settings .settings-row { display: flex; gap: 8px; }
+  .prompt-settings .settings-row select { flex: 1; font-size: 0.8rem; padding: 6px 8px; }
+  .actions { display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; }
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-small { padding: 6px 12px; font-size: 0.8rem; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--accent); }
+  .status { font-size: 0.75rem; color: var(--muted); text-align: center; min-height: 18px; }
+  .status.error { color: var(--error); }
+  .status.success { color: var(--success); }
+  .result-area { display: flex; gap: 8px; align-items: center; }
+  .bottom-bar { display: flex; gap: 12px; justify-content: center; margin-top: 24px; padding: 20px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 900px) {
+    .row { grid-template-columns: 1fr; }
+    .row-num { height: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎬 AI Video Generator</h1>
+  <p class="subtitle">Generate start→end frame transition videos using fal.ai</p>
+
+  <div class="config-bar">
+    <div class="field">
+      <label>Model</label>
+      <select id="model">
+        <option value="fal-ai/kling-video/v1.5/pro/image-to-video">Kling 1.5 Pro (~$0.28)</option>
+        <option value="fal-ai/kling-video/v2/master/image-to-video">Kling 2 Master (~$0.35)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>fal.ai API Key</label>
+      <input type="password" id="apiKey" placeholder="paste your fal key" style="width:340px">
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button class="btn btn-primary" onclick="generateAll()">🚀 Generate All</button>
+    </div>
+  </div>
+
+  <div id="rows"></div>
+
+  <div class="bottom-bar">
+    <button class="btn btn-primary" onclick="generateAll()">🚀 Generate All</button>
+    <button class="btn btn-success" onclick="downloadAll()">📦 Download All</button>
+  </div>
+</div>
+
+<script>
+const NUM_ROWS = 10;
+const state = Array.from({length: NUM_ROWS}, () => ({
+  startFile: null, endFile: null, startUrl: null, endUrl: null,
+  prompt: '', duration: '5', aspectRatio: '16:9',
+  status: 'idle', statusText: '', videoUrl: null, requestId: null,
+}));
+
+function init() {
+  const container = document.getElementById('rows');
+  container.innerHTML = '';
+  for (let i = 0; i < NUM_ROWS; i++) {
+    container.innerHTML += `
+      <div class="row" id="row-${i}">
+        <div class="row-num">${i + 1}</div>
+        <div class="frame-box">
+          <label>Start Frame</label>
+          <div class="drop-zone" id="start-${i}" onclick="document.getElementById('startInput-${i}').click()" ondrop="handleDrop(event,${i},'start')" ondragover="e=>e.preventDefault()">
+            <span>Drop or click</span>
+            <input type="file" id="startInput-${i}" accept="image/*" onchange="handleFile(event,${i},'start')">
+          </div>
+        </div>
+        <div class="frame-box">
+          <label>End Frame</label>
+          <div class="drop-zone" id="end-${i}" onclick="document.getElementById('endInput-${i}').click()" ondrop="handleDrop(event,${i},'end')" ondragover="e=>e.preventDefault()">
+            <span>Drop or click</span>
+            <input type="file" id="endInput-${i}" accept="image/*" onchange="handleFile(event,${i},'end')">
+          </div>
+        </div>
+        <div class="prompt-settings">
+          <textarea id="prompt-${i}" placeholder="Describe the transition..." oninput="state[${i}].prompt=this.value"></textarea>
+          <div class="settings-row">
+            <select id="duration-${i}" onchange="state[${i}].duration=this.value">
+              <option value="5">5 sec</option>
+              <option value="10">10 sec</option>
+            </select>
+            <select id="aspect-${i}" onchange="state[${i}].aspectRatio=this.value">
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+              <option value="1:1">1:1</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-small" id="genBtn-${i}" onclick="generateOne(${i})">Generate</button>
+          <div class="status" id="status-${i}"></div>
+          <div class="result-area" id="result-${i}"></div>
+        </div>
+      </div>`;
+  }
+  // Setup drag/drop for all zones
+  document.querySelectorAll('.drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--accent)'; });
+    zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; });
+  });
+}
+
+function handleFile(event, idx, type) {
+  const file = event.target.files[0];
+  if (!file) return;
+  setImage(idx, type, file);
+}
+
+function handleDrop(event, idx, type) {
+  event.preventDefault();
+  const file = event.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) setImage(idx, type, file);
+}
+
+function setImage(idx, type, file) {
+  state[idx][type + 'File'] = file;
+  const zone = document.getElementById(`${type}-${idx}`);
+  const reader = new FileReader();
+  reader.onload = e => {
+    zone.style.backgroundImage = `url(${e.target.result})`;
+    zone.classList.add('has-image');
+  };
+  reader.readAsDataURL(file);
+}
+
+function getApiKey() {
+  return document.getElementById('apiKey').value.trim();
+}
+
+function getModel() {
+  return document.getElementById('model').value;
+}
+
+function setStatus(idx, type, text) {
+  state[idx].status = type;
+  state[idx].statusText = text;
+  const el = document.getElementById(`status-${idx}`);
+  el.className = `status ${type}`;
+  el.innerHTML = type === 'generating' ? `<span class="spinner"></span> ${text}` : text;
+  const row = document.getElementById(`row-${idx}`);
+  row.className = `row ${type === 'generating' ? 'generating' : type === 'success' ? 'done' : type === 'error' ? 'error' : ''}`;
+}
+
+async function uploadToFal(file, apiKey) {
+  // Get upload URL
+  const initResp = await fetch('https://rest.alpha.fal.ai/storage/upload/initiate', {
+    method: 'POST',
+    headers: { 'Authorization': `Key ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file_name: file.name, content_type: file.type }),
+  });
+  if (!initResp.ok) throw new Error(`Upload init failed: ${initResp.status}`);
+  const { upload_url, file_url } = await initResp.json();
+
+  // Upload file
+  const uploadResp = await fetch(upload_url, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  });
+  if (!uploadResp.ok) throw new Error(`Upload failed: ${uploadResp.status}`);
+  return file_url;
+}
+
+async function generateOne(idx) {
+  const apiKey = getApiKey();
+  if (!apiKey) return setStatus(idx, 'error', 'Enter API key');
+  if (!state[idx].startFile || !state[idx].endFile) return setStatus(idx, 'error', 'Add both frames');
+
+  const btn = document.getElementById(`genBtn-${idx}`);
+  btn.disabled = true;
+
+  try {
+    // Upload images
+    setStatus(idx, 'generating', 'Uploading start frame...');
+    if (!state[idx].startUrl) state[idx].startUrl = await uploadToFal(state[idx].startFile, apiKey);
+
+    setStatus(idx, 'generating', 'Uploading end frame...');
+    if (!state[idx].endUrl) state[idx].endUrl = await uploadToFal(state[idx].endFile, apiKey);
+
+    // Submit request
+    setStatus(idx, 'generating', 'Submitting...');
+    const model = getModel();
+    const submitResp = await fetch(`https://queue.fal.run/${model}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Key ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: state[idx].prompt || 'Smooth natural transition between two scenes',
+        image_url: state[idx].startUrl,
+        tail_image_url: state[idx].endUrl,
+        duration: state[idx].duration,
+        aspect_ratio: state[idx].aspectRatio,
+      }),
+    });
+    if (!submitResp.ok) {
+      const err = await submitResp.text();
+      throw new Error(`Submit failed: ${err}`);
+    }
+    const { request_id } = await submitResp.json();
+    state[idx].requestId = request_id;
+
+    // Poll for result
+    setStatus(idx, 'generating', 'Generating video...');
+    let result = null;
+    while (!result) {
+      await new Promise(r => setTimeout(r, 5000));
+      const statusResp = await fetch(`https://queue.fal.run/${model}/requests/${request_id}/status`, {
+        headers: { 'Authorization': `Key ${apiKey}` },
+      });
+      const statusData = await statusResp.json();
+      if (statusData.status === 'COMPLETED') {
+        const resultResp = await fetch(`https://queue.fal.run/${model}/requests/${request_id}`, {
+          headers: { 'Authorization': `Key ${apiKey}` },
+        });
+        result = await resultResp.json();
+      } else if (statusData.status === 'FAILED') {
+        throw new Error('Generation failed');
+      } else {
+        const elapsed = statusData.queue_position != null ? `Queue: ${statusData.queue_position}` : 'Processing...';
+        setStatus(idx, 'generating', elapsed);
+      }
+    }
+
+    state[idx].videoUrl = result.video.url;
+    setStatus(idx, 'success', 'Done!');
+    document.getElementById(`result-${idx}`).innerHTML = `
+      <a href="${result.video.url}" target="_blank" class="btn btn-outline btn-small">▶ Play</a>
+      <a href="${result.video.url}" download="video_${idx+1}.mp4" class="btn btn-success btn-small">⬇ Download</a>
+    `;
+  } catch (err) {
+    setStatus(idx, 'error', err.message.substring(0, 80));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function generateAll() {
+  const apiKey = getApiKey();
+  if (!apiKey) return alert('Enter your fal.ai API key');
+  const active = [];
+  for (let i = 0; i < NUM_ROWS; i++) {
+    if (state[i].startFile && state[i].endFile && state[i].status !== 'success') {
+      active.push(generateOne(i));
+    }
+  }
+  if (active.length === 0) alert('Add images to at least one row');
+  await Promise.allSettled(active);
+}
+
+async function downloadAll() {
+  const videos = state.filter(s => s.videoUrl);
+  if (videos.length === 0) return alert('No videos generated yet');
+  for (let i = 0; i < state.length; i++) {
+    if (state[i].videoUrl) {
+      const a = document.createElement('a');
+      a.href = state[i].videoUrl;
+      a.download = `video_${i + 1}.mp4`;
+      a.click();
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>
