@@ -3,307 +3,183 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Video Generator</title>
+<title>AI Studio</title>
 <style>
   :root { --bg: #0f0f0f; --card: #1a1a2e; --border: #2a2a4a; --accent: #7c3aed; --accent-hover: #6d28d9; --text: #e2e8f0; --muted: #94a3b8; --success: #22c55e; --error: #ef4444; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
-  .container { max-width: 1200px; margin: 0 auto; }
-  h1 { font-size: 1.8rem; margin-bottom: 8px; background: linear-gradient(135deg, #7c3aed, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.9rem; }
-  .config-bar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: end; }
-  .config-bar .field { display: flex; flex-direction: column; gap: 4px; }
-  .config-bar .field label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  select, input[type="text"], input[type="password"], textarea { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  nav { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 20px; display: flex; align-items: center; gap: 0; }
+  nav .logo { font-weight: 700; font-size: 1.1rem; padding: 14px 20px 14px 0; border-right: 1px solid var(--border); margin-right: 0; background: linear-gradient(135deg, #7c3aed, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  nav a { color: var(--muted); text-decoration: none; padding: 14px 20px; font-size: 0.9rem; font-weight: 500; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  nav a:hover { color: var(--text); }
+  nav a.active { color: var(--text); border-bottom-color: var(--accent); }
+  .page { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .page.active { display: block; }
+  h1 { font-size: 1.5rem; margin-bottom: 6px; }
+  .subtitle { color: var(--muted); margin-bottom: 20px; font-size: 0.85rem; }
+  .config-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: end; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  select, input[type="text"], input[type="password"], input[type="number"], textarea { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
   select:focus, input:focus, textarea:focus { border-color: var(--accent); }
-  select { cursor: pointer; }
-  .row { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: grid; grid-template-columns: 60px 1fr 1fr 1fr auto; gap: 12px; align-items: start; transition: border-color 0.3s; }
+  .row { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: grid; gap: 12px; align-items: start; transition: border-color 0.3s; }
+  .video-row { grid-template-columns: 50px 1fr 1fr 1fr auto; }
+  .img-row { grid-template-columns: 50px 1fr 2fr auto; }
   .row.generating { border-color: var(--accent); }
   .row.done { border-color: var(--success); }
   .row.error { border-color: var(--error); }
-  .row-num { font-size: 1.5rem; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: center; height: 100%; }
-  .frame-box { display: flex; flex-direction: column; gap: 6px; }
+  .row-num { font-size: 1.4rem; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .frame-box { display: flex; flex-direction: column; gap: 4px; }
   .frame-box label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
   .drop-zone { width: 100%; aspect-ratio: 16/9; border: 2px dashed var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: border-color 0.2s; background-size: cover; background-position: center; }
   .drop-zone:hover { border-color: var(--accent); }
-  .drop-zone span { color: var(--muted); font-size: 0.75rem; text-align: center; padding: 4px; }
+  .drop-zone.optional { border-style: dotted; opacity: 0.7; }
+  .drop-zone.optional:hover { opacity: 1; }
+  .drop-zone span { color: var(--muted); font-size: 0.7rem; text-align: center; padding: 4px; }
   .drop-zone.has-image span { display: none; }
   .drop-zone input { display: none; }
   .prompt-settings { display: flex; flex-direction: column; gap: 8px; }
-  .prompt-settings textarea { resize: vertical; min-height: 60px; font-family: inherit; }
-  .prompt-settings .settings-row { display: flex; gap: 8px; }
-  .prompt-settings .settings-row select { flex: 1; font-size: 0.8rem; padding: 6px 8px; }
-  .actions { display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; }
-  .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+  .prompt-settings textarea { resize: vertical; min-height: 55px; font-family: inherit; font-size: 0.85rem; }
+  .settings-row { display: flex; gap: 8px; }
+  .settings-row select { flex: 1; font-size: 0.8rem; padding: 6px 8px; }
+  .actions { display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; min-width: 100px; }
+  .btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .btn-primary { background: var(--accent); color: white; }
   .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   .btn-success { background: var(--success); color: white; }
-  .btn-small { padding: 6px 12px; font-size: 0.8rem; }
+  .btn-small { padding: 6px 12px; font-size: 0.75rem; }
   .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
   .btn-outline:hover { border-color: var(--accent); }
-  .status { font-size: 0.75rem; color: var(--muted); text-align: center; min-height: 18px; }
+  .status { font-size: 0.7rem; color: var(--muted); text-align: center; min-height: 16px; max-width: 120px; word-break: break-word; }
   .status.error { color: var(--error); }
   .status.success { color: var(--success); }
-  .result-area { display: flex; gap: 8px; align-items: center; }
-  .bottom-bar { display: flex; gap: 12px; justify-content: center; margin-top: 24px; padding: 20px; }
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  .result-area { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .bottom-bar { display: flex; gap: 12px; justify-content: center; margin-top: 20px; padding: 16px; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 900px) {
-    .row { grid-template-columns: 1fr; }
-    .row-num { height: auto; }
-  }
+  .output-img { max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+  .info-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+  .info-box a { color: var(--accent); }
+  @media (max-width: 900px) { .video-row, .img-row { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>🎬 AI Video Generator</h1>
-  <p class="subtitle">Generate start→end frame transition videos using fal.ai</p>
+<nav>
+  <span class="logo">🎬 AI Studio</span>
+  <a href="#video" class="active" onclick="showPage('video')">Video Gen</a>
+  <a href="#nano" onclick="showPage('nano')">Nano Banana</a>
+  <a href="#flux" onclick="showPage('flux')">Flux LoRA</a>
+</nav>
 
+<!-- VIDEO PAGE -->
+<div class="page active" id="page-video">
+  <h1>🎬 Video Generation</h1>
+  <p class="subtitle">Start frame → End frame transitions via fal.ai (Kling)</p>
   <div class="config-bar">
-    <div class="field">
-      <label>Model</label>
-      <select id="model">
+    <div class="field"><label>Model</label>
+      <select id="v-model">
         <option value="fal-ai/kling-video/v1.5/pro/image-to-video">Kling 1.5 Pro (~$0.28)</option>
         <option value="fal-ai/kling-video/v2/master/image-to-video">Kling 2 Master (~$0.35)</option>
       </select>
     </div>
-    <div class="field">
-      <label>fal.ai API Key</label>
-      <input type="password" id="apiKey" placeholder="paste your fal key" style="width:340px">
-    </div>
-    <div class="field">
-      <label>&nbsp;</label>
-      <button class="btn btn-primary" onclick="generateAll()">🚀 Generate All</button>
-    </div>
+    <div class="field"><label>fal.ai API Key</label><input type="password" id="v-apiKey" placeholder="paste your fal key" style="width:300px"></div>
+    <div class="field"><label>&nbsp;</label><button class="btn btn-primary" onclick="videoGenerateAll()">🚀 Generate All</button></div>
   </div>
-
-  <div id="rows"></div>
-
+  <div id="video-rows"></div>
   <div class="bottom-bar">
-    <button class="btn btn-primary" onclick="generateAll()">🚀 Generate All</button>
-    <button class="btn btn-success" onclick="downloadAll()">📦 Download All</button>
+    <button class="btn btn-primary" onclick="videoGenerateAll()">🚀 Generate All</button>
+    <button class="btn btn-success" onclick="videoDownloadAll()">📦 Download All</button>
+  </div>
+</div>
+
+<!-- NANO BANANA PAGE -->
+<div class="page" id="page-nano">
+  <h1>🍌 Nano Banana (Gemini Image)</h1>
+  <p class="subtitle">Generate or edit images using Google Gemini — free!</p>
+  <div class="info-box">
+    <strong>Generate:</strong> Just type a prompt. <strong>Edit:</strong> Drop an image + describe the edit.<br>
+    Get your free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
+  </div>
+  <div class="config-bar">
+    <div class="field"><label>Gemini API Key</label><input type="password" id="n-apiKey" placeholder="paste Gemini key" style="width:300px"></div>
+    <div class="field"><label>&nbsp;</label><button class="btn btn-primary" onclick="nanoGenerateAll()">🚀 Generate All</button></div>
+  </div>
+  <div id="nano-rows"></div>
+  <div class="bottom-bar">
+    <button class="btn btn-primary" onclick="nanoGenerateAll()">🚀 Generate All</button>
+    <button class="btn btn-success" onclick="nanoDownloadAll()">📦 Download All</button>
+  </div>
+</div>
+
+<!-- FLUX LORA PAGE -->
+<div class="page" id="page-flux">
+  <h1>🎨 Flux LoRA</h1>
+  <p class="subtitle">Generate images with custom LoRA models via fal.ai</p>
+  <div class="info-box">
+    Provide your LoRA weights URL + trigger word. The trigger word must appear in your prompt.<br>
+    Train LoRA at <a href="https://fal.ai/models/fal-ai/flux-lora-fast-training" target="_blank">fal.ai flux-lora-fast-training</a>
+  </div>
+  <div class="config-bar">
+    <div class="field"><label>fal.ai API Key</label><input type="password" id="f-apiKey" placeholder="paste fal key" style="width:300px"></div>
+    <div class="field"><label>LoRA URL</label><input type="text" id="f-loraUrl" placeholder="https://...safetensors" style="width:280px"></div>
+    <div class="field"><label>Trigger</label><input type="text" id="f-trigger" placeholder="MYSUBJECT" style="width:110px"></div>
+    <div class="field"><label>Scale</label><input type="number" id="f-scale" value="0.9" min="0" max="1.5" step="0.1" style="width:65px"></div>
+    <div class="field"><label>Size</label>
+      <select id="f-size">
+        <option value="landscape_16_9">16:9</option>
+        <option value="portrait_4_3">4:3 Portrait</option>
+        <option value="square">Square</option>
+        <option value="landscape_4_3">4:3 Landscape</option>
+      </select>
+    </div>
+    <div class="field"><label>&nbsp;</label><button class="btn btn-primary" onclick="fluxGenerateAll()">🚀 Generate All</button></div>
+  </div>
+  <div id="flux-rows"></div>
+  <div class="bottom-bar">
+    <button class="btn btn-primary" onclick="fluxGenerateAll()">🚀 Generate All</button>
+    <button class="btn btn-success" onclick="fluxDownloadAll()">📦 Download All</button>
   </div>
 </div>
 
 <script>
-const NUM_ROWS = 10;
-const state = Array.from({length: NUM_ROWS}, () => ({
-  startFile: null, endFile: null, startUrl: null, endUrl: null,
-  prompt: '', duration: '5', aspectRatio: '16:9',
-  status: 'idle', statusText: '', videoUrl: null, requestId: null,
-}));
+// NAV
+function showPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('nav a').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');document.querySelector('nav a[href="#'+p+'"]').classList.add('active');}
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(['video','nano','flux'].includes(h))showPage(h);});
+if(location.hash){const h=location.hash.slice(1);if(['video','nano','flux'].includes(h))showPage(h);}
 
-function init() {
-  const container = document.getElementById('rows');
-  container.innerHTML = '';
-  for (let i = 0; i < NUM_ROWS; i++) {
-    container.innerHTML += `
-      <div class="row" id="row-${i}">
-        <div class="row-num">${i + 1}</div>
-        <div class="frame-box">
-          <label>Start Frame</label>
-          <div class="drop-zone" id="start-${i}" onclick="document.getElementById('startInput-${i}').click()" ondrop="handleDrop(event,${i},'start')" ondragover="e=>e.preventDefault()">
-            <span>Drop or click</span>
-            <input type="file" id="startInput-${i}" accept="image/*" onchange="handleFile(event,${i},'start')">
-          </div>
-        </div>
-        <div class="frame-box">
-          <label>End Frame</label>
-          <div class="drop-zone" id="end-${i}" onclick="document.getElementById('endInput-${i}').click()" ondrop="handleDrop(event,${i},'end')" ondragover="e=>e.preventDefault()">
-            <span>Drop or click</span>
-            <input type="file" id="endInput-${i}" accept="image/*" onchange="handleFile(event,${i},'end')">
-          </div>
-        </div>
-        <div class="prompt-settings">
-          <textarea id="prompt-${i}" placeholder="Describe the transition..." oninput="state[${i}].prompt=this.value"></textarea>
-          <div class="settings-row">
-            <select id="duration-${i}" onchange="state[${i}].duration=this.value">
-              <option value="5">5 sec</option>
-              <option value="10">10 sec</option>
-            </select>
-            <select id="aspect-${i}" onchange="state[${i}].aspectRatio=this.value">
-              <option value="16:9">16:9</option>
-              <option value="9:16">9:16</option>
-              <option value="1:1">1:1</option>
-            </select>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn btn-primary btn-small" id="genBtn-${i}" onclick="generateOne(${i})">Generate</button>
-          <div class="status" id="status-${i}"></div>
-          <div class="result-area" id="result-${i}"></div>
-        </div>
-      </div>`;
-  }
-  // Setup drag/drop for all zones
-  document.querySelectorAll('.drop-zone').forEach(zone => {
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--accent)'; });
-    zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; });
-  });
-}
+// UTILS
+function setStatus(id,type,text){const el=document.getElementById(id);el.className='status '+type;el.innerHTML=type==='generating'?'<span class="spinner"></span> '+text:text;const row=el.closest('.row');if(row)row.className=row.className.replace(/ (generating|done|error)/g,'')+(type==='generating'?' generating':type==='success'?' done':type==='error'?' error':'');}
+function setupDZ(z,cb){z.addEventListener('dragover',e=>{e.preventDefault();z.style.borderColor='var(--accent)';});z.addEventListener('dragleave',()=>z.style.borderColor='');z.addEventListener('drop',e=>{e.preventDefault();z.style.borderColor='';const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))cb(f);});z.addEventListener('click',()=>z.querySelector('input[type=file]')?.click());}
+function preview(z,f){const r=new FileReader();r.onload=e=>{z.style.backgroundImage='url('+e.target.result+')';z.classList.add('has-image');};r.readAsDataURL(f);}
+function toB64(f){return new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result.split(',')[1]);x.readAsDataURL(f);})}
+async function falUp(f,k){const i=await fetch('https://rest.alpha.fal.ai/storage/upload/initiate',{method:'POST',headers:{'Authorization':'Key '+k,'Content-Type':'application/json'},body:JSON.stringify({file_name:f.name,content_type:f.type})});if(!i.ok)throw new Error('Upload init: '+i.status);const d=await i.json();const u=await fetch(d.upload_url,{method:'PUT',headers:{'Content-Type':f.type},body:f});if(!u.ok)throw new Error('Upload: '+u.status);return d.file_url;}
+async function falPoll(model,args,k,sid){const r=await fetch('https://queue.fal.run/'+model,{method:'POST',headers:{'Authorization':'Key '+k,'Content-Type':'application/json'},body:JSON.stringify(args)});if(!r.ok)throw new Error(await r.text());const{request_id}=await r.json();while(true){await new Promise(r=>setTimeout(r,5000));const s=await(await fetch('https://queue.fal.run/'+model+'/requests/'+request_id+'/status',{headers:{'Authorization':'Key '+k}})).json();if(s.status==='COMPLETED'){return await(await fetch('https://queue.fal.run/'+model+'/requests/'+request_id,{headers:{'Authorization':'Key '+k}})).json();}if(s.status==='FAILED')throw new Error('Failed');setStatus(sid,'generating',s.queue_position!=null?'Queue: '+s.queue_position:'Processing...');}}
 
-function handleFile(event, idx, type) {
-  const file = event.target.files[0];
-  if (!file) return;
-  setImage(idx, type, file);
-}
+// VIDEO
+const NV=10,vS=Array.from({length:NV},()=>({sf:null,ef:null,su:null,eu:null,vu:null}));
+function initV(){const c=document.getElementById('video-rows');c.innerHTML='';for(let i=0;i<NV;i++){c.innerHTML+='<div class="row video-row" id="vr-'+i+'"><div class="row-num">'+(i+1)+'</div><div class="frame-box"><label>Start Frame *</label><div class="drop-zone" id="vs-'+i+'"><span>Drop / click</span><input type="file" accept="image/*"></div></div><div class="frame-box"><label>End Frame (optional)</label><div class="drop-zone optional" id="ve-'+i+'"><span>Optional</span><input type="file" accept="image/*"></div></div><div class="prompt-settings"><textarea id="vp-'+i+'" placeholder="Describe transition..."></textarea><div class="settings-row"><select id="vd-'+i+'"><option value="5">5s</option><option value="10">10s</option></select><select id="va-'+i+'"><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></div></div><div class="actions"><button class="btn btn-primary btn-small" onclick="vGen('+i+')">Generate</button><div class="status" id="vst-'+i+'"></div><div class="result-area" id="vres-'+i+'"></div></div></div>';}for(let i=0;i<NV;i++){const si=document.getElementById('vs-'+i),ei=document.getElementById('ve-'+i);setupDZ(si,f=>{vS[i].sf=f;vS[i].su=null;preview(si,f);});setupDZ(ei,f=>{vS[i].ef=f;vS[i].eu=null;preview(ei,f);});si.querySelector('input').onchange=e=>{const f=e.target.files[0];if(f){vS[i].sf=f;vS[i].su=null;preview(si,f);}};ei.querySelector('input').onchange=e=>{const f=e.target.files[0];if(f){vS[i].ef=f;vS[i].eu=null;preview(ei,f);}};}}
+async function vGen(i){const k=document.getElementById('v-apiKey').value.trim();if(!k)return setStatus('vst-'+i,'error','Enter API key');if(!vS[i].sf)return setStatus('vst-'+i,'error','Add start frame');try{setStatus('vst-'+i,'generating','Uploading...');if(!vS[i].su)vS[i].su=await falUp(vS[i].sf,k);if(vS[i].ef&&!vS[i].eu)vS[i].eu=await falUp(vS[i].ef,k);setStatus('vst-'+i,'generating','Submitting...');const a={prompt:document.getElementById('vp-'+i).value||'Smooth cinematic transition',image_url:vS[i].su,duration:document.getElementById('vd-'+i).value,aspect_ratio:document.getElementById('va-'+i).value};if(vS[i].eu)a.tail_image_url=vS[i].eu;const r=await falPoll(document.getElementById('v-model').value,a,k,'vst-'+i);vS[i].vu=r.video.url;setStatus('vst-'+i,'success','Done!');document.getElementById('vres-'+i).innerHTML='<a href="'+r.video.url+'" target="_blank" class="btn btn-outline btn-small">▶</a><a href="'+r.video.url+'" download="video_'+(i+1)+'.mp4" class="btn btn-success btn-small">⬇</a>';}catch(e){setStatus('vst-'+i,'error',e.message.substring(0,60));}}
+function videoGenerateAll(){const p=[];for(let i=0;i<NV;i++)if(vS[i].sf&&!vS[i].vu)p.push(vGen(i));if(!p.length)alert('Add start frame to at least one row');Promise.allSettled(p);}
+function videoDownloadAll(){vS.forEach((s,i)=>{if(s.vu){const a=document.createElement('a');a.href=s.vu;a.download='video_'+(i+1)+'.mp4';a.click();}});}
 
-function handleDrop(event, idx, type) {
-  event.preventDefault();
-  const file = event.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) setImage(idx, type, file);
-}
+// NANO
+const NN=10,nS=Array.from({length:NN},()=>({inf:null,ru:null,rb:null}));
+function initN(){const c=document.getElementById('nano-rows');c.innerHTML='';for(let i=0;i<NN;i++){c.innerHTML+='<div class="row img-row" id="nr-'+i+'"><div class="row-num">'+(i+1)+'</div><div class="frame-box"><label>Input (optional)</label><div class="drop-zone optional" id="ni-'+i+'"><span>Drop to edit</span><input type="file" accept="image/*"></div></div><div class="prompt-settings"><textarea id="np-'+i+'" placeholder="Describe what to generate or edit..."></textarea></div><div class="actions"><button class="btn btn-primary btn-small" onclick="nGen('+i+')">Generate</button><div class="status" id="nst-'+i+'"></div><div class="result-area" id="nres-'+i+'"></div></div></div>';}for(let i=0;i<NN;i++){const z=document.getElementById('ni-'+i);setupDZ(z,f=>{nS[i].inf=f;preview(z,f);});z.querySelector('input').onchange=e=>{const f=e.target.files[0];if(f){nS[i].inf=f;preview(z,f);}};}}
+async function nGen(i){const k=document.getElementById('n-apiKey').value.trim(),pr=document.getElementById('np-'+i).value.trim();if(!k)return setStatus('nst-'+i,'error','Enter Gemini key');if(!pr)return setStatus('nst-'+i,'error','Enter prompt');try{setStatus('nst-'+i,'generating','Generating...');const parts=[{text:pr}];if(nS[i].inf){const b=await toB64(nS[i].inf);parts.push({inline_data:{mime_type:nS[i].inf.type,data:b}});}const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key='+k,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts}],generationConfig:{responseModalities:['TEXT','IMAGE']}})});if(!resp.ok)throw new Error('API: '+resp.status);const d=await resp.json();const ip=d.candidates?.[0]?.content?.parts?.find(p=>p.inline_data);if(!ip)throw new Error(d.candidates?.[0]?.content?.parts?.[0]?.text||'No image');const bl=new Blob([Uint8Array.from(atob(ip.inline_data.data),c=>c.charCodeAt(0))],{type:ip.inline_data.mime_type});const u=URL.createObjectURL(bl);nS[i].ru=u;nS[i].rb=bl;setStatus('nst-'+i,'success','Done!');document.getElementById('nres-'+i).innerHTML='<img src="'+u+'" class="output-img" onclick="window.open(this.src)"><a href="'+u+'" download="nano_'+(i+1)+'.png" class="btn btn-success btn-small">⬇</a>';}catch(e){setStatus('nst-'+i,'error',e.message.substring(0,60));}}
+function nanoGenerateAll(){const p=[];for(let i=0;i<NN;i++)if(document.getElementById('np-'+i).value.trim()&&!nS[i].ru)p.push(nGen(i));if(!p.length)alert('Enter prompt in at least one row');Promise.allSettled(p);}
+function nanoDownloadAll(){nS.forEach((s,i)=>{if(s.ru){const a=document.createElement('a');a.href=s.ru;a.download='nano_'+(i+1)+'.png';a.click();}});}
 
-function setImage(idx, type, file) {
-  state[idx][type + 'File'] = file;
-  const zone = document.getElementById(`${type}-${idx}`);
-  const reader = new FileReader();
-  reader.onload = e => {
-    zone.style.backgroundImage = `url(${e.target.result})`;
-    zone.classList.add('has-image');
-  };
-  reader.readAsDataURL(file);
-}
+// FLUX
+const NF=10,fS=Array.from({length:NF},()=>({ru:null}));
+function initF(){const c=document.getElementById('flux-rows');c.innerHTML='';for(let i=0;i<NF;i++){c.innerHTML+='<div class="row img-row" id="fr-'+i+'"><div class="row-num">'+(i+1)+'</div><div class="frame-box"><label>Preview</label><div class="drop-zone" id="fp-'+i+'" style="cursor:default;border-style:solid"><span>Result</span></div></div><div class="prompt-settings"><textarea id="fpr-'+i+'" placeholder="Include trigger word in prompt..."></textarea></div><div class="actions"><button class="btn btn-primary btn-small" onclick="fGen('+i+')">Generate</button><div class="status" id="fst-'+i+'"></div><div class="result-area" id="fres-'+i+'"></div></div></div>';}}
+async function fGen(i){const k=document.getElementById('f-apiKey').value.trim(),lu=document.getElementById('f-loraUrl').value.trim(),tr=document.getElementById('f-trigger').value.trim(),pr=document.getElementById('fpr-'+i).value.trim();if(!k)return setStatus('fst-'+i,'error','Enter fal key');if(!lu)return setStatus('fst-'+i,'error','Enter LoRA URL');if(!pr)return setStatus('fst-'+i,'error','Enter prompt');if(tr&&!pr.includes(tr))return setStatus('fst-'+i,'error','Include "'+tr+'" in prompt');try{setStatus('fst-'+i,'generating','Submitting...');const sc=parseFloat(document.getElementById('f-scale').value)||0.9;const r=await falPoll('fal-ai/flux-lora',{prompt:pr,loras:[{path:lu,scale:sc}],image_size:document.getElementById('f-size').value,num_images:1},k,'fst-'+i);const u=r.images[0].url;fS[i].ru=u;setStatus('fst-'+i,'success','Done!');document.getElementById('fp-'+i).style.backgroundImage='url('+u+')';document.getElementById('fp-'+i).classList.add('has-image');document.getElementById('fres-'+i).innerHTML='<a href="'+u+'" target="_blank" class="btn btn-outline btn-small">🔍</a><a href="'+u+'" download="flux_'+(i+1)+'.jpg" class="btn btn-success btn-small">⬇</a>';}catch(e){setStatus('fst-'+i,'error',e.message.substring(0,60));}}
+function fluxGenerateAll(){const p=[];for(let i=0;i<NF;i++)if(document.getElementById('fpr-'+i).value.trim()&&!fS[i].ru)p.push(fGen(i));if(!p.length)alert('Enter prompt in at least one row');Promise.allSettled(p);}
+function fluxDownloadAll(){fS.forEach((s,i)=>{if(s.ru){const a=document.createElement('a');a.href=s.ru;a.download='flux_'+(i+1)+'.jpg';a.click();}});}
 
-function getApiKey() {
-  return document.getElementById('apiKey').value.trim();
-}
-
-function getModel() {
-  return document.getElementById('model').value;
-}
-
-function setStatus(idx, type, text) {
-  state[idx].status = type;
-  state[idx].statusText = text;
-  const el = document.getElementById(`status-${idx}`);
-  el.className = `status ${type}`;
-  el.innerHTML = type === 'generating' ? `<span class="spinner"></span> ${text}` : text;
-  const row = document.getElementById(`row-${idx}`);
-  row.className = `row ${type === 'generating' ? 'generating' : type === 'success' ? 'done' : type === 'error' ? 'error' : ''}`;
-}
-
-async function uploadToFal(file, apiKey) {
-  // Get upload URL
-  const initResp = await fetch('https://rest.alpha.fal.ai/storage/upload/initiate', {
-    method: 'POST',
-    headers: { 'Authorization': `Key ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ file_name: file.name, content_type: file.type }),
-  });
-  if (!initResp.ok) throw new Error(`Upload init failed: ${initResp.status}`);
-  const { upload_url, file_url } = await initResp.json();
-
-  // Upload file
-  const uploadResp = await fetch(upload_url, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file,
-  });
-  if (!uploadResp.ok) throw new Error(`Upload failed: ${uploadResp.status}`);
-  return file_url;
-}
-
-async function generateOne(idx) {
-  const apiKey = getApiKey();
-  if (!apiKey) return setStatus(idx, 'error', 'Enter API key');
-  if (!state[idx].startFile || !state[idx].endFile) return setStatus(idx, 'error', 'Add both frames');
-
-  const btn = document.getElementById(`genBtn-${idx}`);
-  btn.disabled = true;
-
-  try {
-    // Upload images
-    setStatus(idx, 'generating', 'Uploading start frame...');
-    if (!state[idx].startUrl) state[idx].startUrl = await uploadToFal(state[idx].startFile, apiKey);
-
-    setStatus(idx, 'generating', 'Uploading end frame...');
-    if (!state[idx].endUrl) state[idx].endUrl = await uploadToFal(state[idx].endFile, apiKey);
-
-    // Submit request
-    setStatus(idx, 'generating', 'Submitting...');
-    const model = getModel();
-    const submitResp = await fetch(`https://queue.fal.run/${model}`, {
-      method: 'POST',
-      headers: { 'Authorization': `Key ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: state[idx].prompt || 'Smooth natural transition between two scenes',
-        image_url: state[idx].startUrl,
-        tail_image_url: state[idx].endUrl,
-        duration: state[idx].duration,
-        aspect_ratio: state[idx].aspectRatio,
-      }),
-    });
-    if (!submitResp.ok) {
-      const err = await submitResp.text();
-      throw new Error(`Submit failed: ${err}`);
-    }
-    const { request_id } = await submitResp.json();
-    state[idx].requestId = request_id;
-
-    // Poll for result
-    setStatus(idx, 'generating', 'Generating video...');
-    let result = null;
-    while (!result) {
-      await new Promise(r => setTimeout(r, 5000));
-      const statusResp = await fetch(`https://queue.fal.run/${model}/requests/${request_id}/status`, {
-        headers: { 'Authorization': `Key ${apiKey}` },
-      });
-      const statusData = await statusResp.json();
-      if (statusData.status === 'COMPLETED') {
-        const resultResp = await fetch(`https://queue.fal.run/${model}/requests/${request_id}`, {
-          headers: { 'Authorization': `Key ${apiKey}` },
-        });
-        result = await resultResp.json();
-      } else if (statusData.status === 'FAILED') {
-        throw new Error('Generation failed');
-      } else {
-        const elapsed = statusData.queue_position != null ? `Queue: ${statusData.queue_position}` : 'Processing...';
-        setStatus(idx, 'generating', elapsed);
-      }
-    }
-
-    state[idx].videoUrl = result.video.url;
-    setStatus(idx, 'success', 'Done!');
-    document.getElementById(`result-${idx}`).innerHTML = `
-      <a href="${result.video.url}" target="_blank" class="btn btn-outline btn-small">▶ Play</a>
-      <a href="${result.video.url}" download="video_${idx+1}.mp4" class="btn btn-success btn-small">⬇ Download</a>
-    `;
-  } catch (err) {
-    setStatus(idx, 'error', err.message.substring(0, 80));
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function generateAll() {
-  const apiKey = getApiKey();
-  if (!apiKey) return alert('Enter your fal.ai API key');
-  const active = [];
-  for (let i = 0; i < NUM_ROWS; i++) {
-    if (state[i].startFile && state[i].endFile && state[i].status !== 'success') {
-      active.push(generateOne(i));
-    }
-  }
-  if (active.length === 0) alert('Add images to at least one row');
-  await Promise.allSettled(active);
-}
-
-async function downloadAll() {
-  const videos = state.filter(s => s.videoUrl);
-  if (videos.length === 0) return alert('No videos generated yet');
-  for (let i = 0; i < state.length; i++) {
-    if (state[i].videoUrl) {
-      const a = document.createElement('a');
-      a.href = state[i].videoUrl;
-      a.download = `video_${i + 1}.mp4`;
-      a.click();
-      await new Promise(r => setTimeout(r, 500));
-    }
-  }
-}
-
-init();
+// INIT
+initV();initN();initF();
+['v-apiKey','n-apiKey','f-apiKey','f-loraUrl','f-trigger'].forEach(id=>{const el=document.getElementById(id);const s=localStorage.getItem('ai-'+id);if(s)el.value=s;el.addEventListener('change',()=>localStorage.setItem('ai-'+id,el.value));});
 </script>
 </body>
 </html>
