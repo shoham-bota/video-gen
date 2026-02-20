@@ -69,8 +69,10 @@
   .multi-img-zone.drag-over .add-img-btn { border-color: var(--accent); color: var(--accent); }
   .img-zone-hint { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
   .img-zone-hidden { display: none; }
-  .nano-settings-row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .nano-settings-row select { font-size: 0.8rem; padding: 6px 8px; }
+  .nano-settings-row, .video-settings-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .nano-settings-row select, .video-settings-row select { font-size: 0.8rem; padding: 6px 8px; }
+  .video-settings-row label.cb-label { font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .video-settings-row input[type="checkbox"] { accent-color: var(--accent); }
   .output-video { max-width: 280px; max-height: 200px; border-radius: 8px; border: 1px solid var(--border); }
   @media (max-width: 900px) { .video-row, .img-row { grid-template-columns: 1fr; } }
 </style>
@@ -88,12 +90,6 @@
   <h1>🎬 Video Generation</h1>
   <p class="subtitle">Start frame → End frame transitions via fal.ai (Kling)</p>
   <div class="config-bar">
-    <div class="field"><label>Model</label>
-      <select id="v-model">
-        <option value="fal-ai/kling-video/v1.5/pro/image-to-video">Kling 1.5 Pro (~$0.28)</option>
-        <option value="fal-ai/kling-video/v2/master/image-to-video">Kling 2 Master (~$0.35)</option>
-      </select>
-    </div>
     <div class="field"><label>fal.ai API Key</label><input type="password" id="v-apiKey" placeholder="paste your fal key" style="width:300px"></div>
     <div class="field"><label>&nbsp;</label><button class="btn btn-primary" onclick="videoGenerateAll()">🚀 Generate All</button></div>
   </div>
@@ -168,9 +164,110 @@ async function falUp(f,k){const i=await fetch('https://rest.alpha.fal.ai/storage
 async function falPoll(model,args,k,sid){const r=await fetch('https://queue.fal.run/'+model,{method:'POST',headers:{'Authorization':'Key '+k,'Content-Type':'application/json'},body:JSON.stringify(args)});if(!r.ok)throw new Error(await r.text());const{request_id}=await r.json();setStatus(sid,'generating','Queued...');while(true){await new Promise(r=>setTimeout(r,5000));const resp=await fetch('https://queue.fal.run/'+model+'/requests/'+request_id,{headers:{'Authorization':'Key '+k}});if(resp.status===200){return await resp.json();}else if(resp.status===202){setStatus(sid,'generating','Processing...');}else{const t=await resp.text();throw new Error('Poll error '+resp.status+': '+t.substring(0,80));}}}
 
 // VIDEO
+const VIDEO_MODEL_DEFS=[
+  {id:'fal-ai/kling-video/v3/pro/image-to-video',label:'Kling 3.0 Pro',price:'$0.224/s',durations:['3','4','5','6','7','8','9','10','11','12','13','14','15'],ratios:['16:9','9:16','1:1'],audio:true},
+  {id:'fal-ai/kling-video/v3/standard/image-to-video',label:'Kling 3.0 Standard',price:'$0.168/s',durations:['3','4','5','6','7','8','9','10','11','12','13','14','15'],ratios:['16:9','9:16','1:1'],audio:true},
+  {id:'fal-ai/kling-video/v2.6/pro/image-to-video',label:'Kling 2.6 Pro',price:'$0.07/s',durations:['5','10'],ratios:['16:9','9:16','1:1'],audio:true},
+  {id:'fal-ai/kling-video/v2/master/image-to-video',label:'Kling 2.0 Master',price:'$0.035/s',durations:['5','10'],ratios:['16:9','9:16','1:1'],audio:false},
+  {id:'fal-ai/kling-video/v1.5/pro/image-to-video',label:'Kling 1.5 Pro',price:'$0.028/s',durations:['5','10'],ratios:['16:9','9:16','1:1'],audio:false},
+];
+function vModelDef(id){return VIDEO_MODEL_DEFS.find(m=>m.id===id)||VIDEO_MODEL_DEFS[0];}
+function vBuildModelOpts(){return VIDEO_MODEL_DEFS.map(m=>'<option value="'+m.id+'">'+m.label+' ('+m.price+')</option>').join('');}
+
 const NV=10,vS=Array.from({length:NV},()=>({sf:null,ef:null,su:null,eu:null,vu:null}));
-function initV(){const c=document.getElementById('video-rows');c.innerHTML='';for(let i=0;i<NV;i++){c.innerHTML+='<div class="row video-row" id="vr-'+i+'"><div class="row-num">'+(i+1)+'</div><div class="frame-box"><label>Start Frame *</label><div class="drop-zone" id="vs-'+i+'"><span>Drop / click</span><input type="file" accept="image/*"></div></div><div class="frame-box"><label>End Frame (optional)</label><div class="drop-zone optional" id="ve-'+i+'"><span>Optional</span><input type="file" accept="image/*"></div></div><div class="prompt-settings"><textarea id="vp-'+i+'" placeholder="Describe transition..."></textarea><div class="settings-row"><select id="vd-'+i+'"><option value="5">5s</option><option value="10">10s</option></select><select id="va-'+i+'"><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></div></div><div class="actions"><button class="btn btn-primary btn-small" onclick="vGen('+i+')">Generate</button><div class="status" id="vst-'+i+'"></div><div class="result-area" id="vres-'+i+'"></div></div></div>';}for(let i=0;i<NV;i++){const si=document.getElementById('vs-'+i),ei=document.getElementById('ve-'+i);setupDZ(si,f=>{vS[i].sf=f;vS[i].su=null;preview(si,f);});setupDZ(ei,f=>{vS[i].ef=f;vS[i].eu=null;preview(ei,f);});si.querySelector('input').onchange=e=>{const f=e.target.files[0];if(f){vS[i].sf=f;vS[i].su=null;preview(si,f);}};ei.querySelector('input').onchange=e=>{const f=e.target.files[0];if(f){vS[i].ef=f;vS[i].eu=null;preview(ei,f);}};}}
-async function vGen(i){const k=document.getElementById('v-apiKey').value.trim();if(!k)return setStatus('vst-'+i,'error','Enter API key');if(!vS[i].sf)return setStatus('vst-'+i,'error','Add start frame');try{setStatus('vst-'+i,'generating','Uploading...');if(!vS[i].su)vS[i].su=await falUp(vS[i].sf,k);if(vS[i].ef&&!vS[i].eu)vS[i].eu=await falUp(vS[i].ef,k);setStatus('vst-'+i,'generating','Submitting...');const a={prompt:document.getElementById('vp-'+i).value||'Smooth cinematic transition',image_url:vS[i].su,duration:document.getElementById('vd-'+i).value,aspect_ratio:document.getElementById('va-'+i).value};if(vS[i].eu)a.tail_image_url=vS[i].eu;const r=await falPoll(document.getElementById('v-model').value,a,k,'vst-'+i);vS[i].vu=r.video.url;setStatus('vst-'+i,'success','Done!');document.getElementById('vres-'+i).innerHTML='<a href="'+r.video.url+'" target="_blank" class="btn btn-outline btn-small">▶</a><a href="'+r.video.url+'" download="video_'+(i+1)+'.mp4" class="btn btn-success btn-small">⬇</a>';}catch(e){setStatus('vst-'+i,'error',e.message.substring(0,60));}}
+
+// Persist start/end frames to localStorage
+function vPersistImgs(i){
+  const save=(f,key)=>{if(!f)return localStorage.removeItem(key);const r=new FileReader();r.onload=e=>{const d=JSON.stringify({dataUrl:e.target.result,name:f.name,type:f.type});if(d.length>4*1024*1024)return;try{localStorage.setItem(key,d);}catch(e){}};r.readAsDataURL(f);};
+  save(vS[i].sf,'vid-sf-'+i);save(vS[i].ef,'vid-ef-'+i);
+}
+function vRestoreImg(key){
+  try{
+    const raw=localStorage.getItem(key);if(!raw)return null;
+    const item=JSON.parse(raw);
+    const byteStr=atob(item.dataUrl.split(',')[1]);
+    const ab=new ArrayBuffer(byteStr.length);const ia=new Uint8Array(ab);
+    for(let j=0;j<byteStr.length;j++)ia[j]=byteStr.charCodeAt(j);
+    return new File([new Blob([ab],{type:item.type})],item.name,{type:item.type});
+  }catch(e){return null;}
+}
+
+function vUpdateRowSettings(i){
+  const sel=document.getElementById('vm-'+i);if(!sel)return;
+  const md=vModelDef(sel.value);
+  const durSel=document.getElementById('vd-'+i);
+  const arSel=document.getElementById('va-'+i);
+  const audioWrap=document.getElementById('vaud-wrap-'+i);
+  const oldDur=durSel?durSel.value:null;
+  const oldAr=arSel?arSel.value:null;
+  if(durSel){
+    durSel.innerHTML=md.durations.map(d=>'<option value="'+d+'">'+d+'s</option>').join('');
+    if(oldDur&&md.durations.includes(oldDur))durSel.value=oldDur;
+  }
+  if(arSel){
+    arSel.innerHTML=md.ratios.map(r=>'<option value="'+r+'">'+r+'</option>').join('');
+    if(oldAr&&md.ratios.includes(oldAr))arSel.value=oldAr;
+  }
+  if(audioWrap){audioWrap.style.display=md.audio?'':'none';}
+}
+
+function initV(){
+  const c=document.getElementById('video-rows');c.innerHTML='';
+  const modelOpts=vBuildModelOpts();
+  for(let i=0;i<NV;i++){
+    c.innerHTML+='<div class="row video-row" id="vr-'+i+'">'
+      +'<div class="row-num">'+(i+1)+'</div>'
+      +'<div class="frame-box"><label>Start Frame *</label><div class="drop-zone" id="vs-'+i+'"><span>Drop / click</span><input type="file" accept="image/*"></div></div>'
+      +'<div class="frame-box"><label>End Frame (optional)</label><div class="drop-zone optional" id="ve-'+i+'"><span>Optional</span><input type="file" accept="image/*"></div></div>'
+      +'<div class="prompt-settings"><textarea id="vp-'+i+'" placeholder="Describe transition..."></textarea>'
+      +'<div class="video-settings-row">'
+      +'<select id="vm-'+i+'" onchange="vUpdateRowSettings('+i+')">'+modelOpts+'</select>'
+      +'<select id="vd-'+i+'" title="Duration"></select>'
+      +'<select id="va-'+i+'" title="Aspect ratio"></select>'
+      +'<span id="vaud-wrap-'+i+'"><label class="cb-label"><input type="checkbox" id="vau-'+i+'" checked> Audio</label></span>'
+      +'</div></div>'
+      +'<div class="actions"><button class="btn btn-primary btn-small" onclick="vGen('+i+')">Generate</button>'
+      +'<div class="status" id="vst-'+i+'"></div><div class="result-area" id="vres-'+i+'"></div></div></div>';
+  }
+  for(let i=0;i<NV;i++){
+    // Restore persisted images
+    const rsf=vRestoreImg('vid-sf-'+i);
+    const ref=vRestoreImg('vid-ef-'+i);
+    if(rsf){vS[i].sf=rsf;preview(document.getElementById('vs-'+i),rsf);}
+    if(ref){vS[i].ef=ref;preview(document.getElementById('ve-'+i),ref);}
+    vUpdateRowSettings(i);
+    const si=document.getElementById('vs-'+i),ei=document.getElementById('ve-'+i);
+    setupDZ(si,f=>{vS[i].sf=f;vS[i].su=null;preview(si,f);vPersistImgs(i);});
+    setupDZ(ei,f=>{vS[i].ef=f;vS[i].eu=null;preview(ei,f);vPersistImgs(i);});
+    si.querySelector('input').onchange=e=>{const f=e.target.files[0];if(f){vS[i].sf=f;vS[i].su=null;preview(si,f);vPersistImgs(i);}};
+    ei.querySelector('input').onchange=e=>{const f=e.target.files[0];if(f){vS[i].ef=f;vS[i].eu=null;preview(ei,f);vPersistImgs(i);}};
+  }
+}
+
+async function vGen(i){
+  const k=document.getElementById('v-apiKey').value.trim();
+  if(!k)return setStatus('vst-'+i,'error','Enter API key');
+  if(!vS[i].sf)return setStatus('vst-'+i,'error','Add start frame');
+  const md=vModelDef(document.getElementById('vm-'+i).value);
+  try{
+    setStatus('vst-'+i,'generating','Uploading...');
+    if(!vS[i].su)vS[i].su=await falUp(vS[i].sf,k);
+    if(vS[i].ef&&!vS[i].eu)vS[i].eu=await falUp(vS[i].ef,k);
+    setStatus('vst-'+i,'generating','Submitting...');
+    const a={
+      prompt:document.getElementById('vp-'+i).value||'Smooth cinematic transition',
+      start_image_url:vS[i].su,
+      duration:document.getElementById('vd-'+i).value,
+      aspect_ratio:document.getElementById('va-'+i).value
+    };
+    if(vS[i].eu)a.end_image_url=vS[i].eu;
+    if(md.audio){a.generate_audio=document.getElementById('vau-'+i).checked;}
+    const r=await falPoll(md.id,a,k,'vst-'+i);
+    vS[i].vu=r.video.url;
+    setStatus('vst-'+i,'success','Done!');
+    document.getElementById('vres-'+i).innerHTML='<a href="'+r.video.url+'" target="_blank" class="btn btn-outline btn-small">▶</a><a href="'+r.video.url+'" download="video_'+(i+1)+'.mp4" class="btn btn-success btn-small">⬇</a>';
+  }catch(e){setStatus('vst-'+i,'error',e.message.substring(0,60));}
+}
 function videoGenerateAll(){const p=[];for(let i=0;i<NV;i++)if(vS[i].sf&&!vS[i].vu)p.push(vGen(i));if(!p.length)alert('Add start frame to at least one row');Promise.allSettled(p);}
 function videoDownloadAll(){vS.forEach((s,i)=>{if(s.vu){const a=document.createElement('a');a.href=s.vu;a.download='video_'+(i+1)+'.mp4';a.click();}});}
 
