@@ -67,6 +67,11 @@
   .multi-img-zone .add-img-btn { width: 80px; height: 80px; border: 2px dashed var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 1.5rem; transition: border-color 0.2s; background: transparent; }
   .multi-img-zone .add-img-btn:hover { border-color: var(--accent); color: var(--accent); }
   .multi-img-zone.drag-over .add-img-btn { border-color: var(--accent); color: var(--accent); }
+  .img-zone-hint { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+  .img-zone-hidden { display: none; }
+  .nano-settings-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .nano-settings-row select { font-size: 0.8rem; padding: 6px 8px; }
+  .output-video { max-width: 280px; max-height: 200px; border-radius: 8px; border: 1px solid var(--border); }
   @media (max-width: 900px) { .video-row, .img-row { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -101,11 +106,11 @@
 
 <!-- NANO BANANA PAGE -->
 <div class="page" id="page-nano">
-  <h1>🍌 Nano Banana (Gemini Image)</h1>
-  <p class="subtitle">Generate or edit images using Google Gemini — free!</p>
+  <h1>🍌 Nano Banana (Gemini · Imagen · Veo)</h1>
+  <p class="subtitle">Generate or edit images & video using Google AI models</p>
   <div class="info-box">
     <strong>Generate:</strong> Just type a prompt. <strong>Edit:</strong> Drop an image + describe the edit.<br>
-    Get your free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
+    💎 = paid model (requires billing-enabled key). Get your key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
   </div>
   <div class="config-bar">
     <div class="field"><label>Gemini API Key</label><input type="password" id="n-apiKey" placeholder="paste Gemini key" style="width:300px"></div>
@@ -170,13 +175,258 @@ function videoGenerateAll(){const p=[];for(let i=0;i<NV;i++)if(vS[i].sf&&!vS[i].
 function videoDownloadAll(){vS.forEach((s,i)=>{if(s.vu){const a=document.createElement('a');a.href=s.vu;a.download='video_'+(i+1)+'.mp4';a.click();}});}
 
 // NANO
+const NANO_MODEL_DEFS=[
+  {id:'gemini-2.5-flash-image',label:'Gemini 2.5 Flash · Nano Banana',type:'gemini',maxImages:10,paid:false,ratios:['1:1','3:2','2:3','4:3','3:4','16:9','9:16'],sizes:['1K']},
+  {id:'gemini-3-pro-image-preview',label:'Gemini 3 Pro · Nano Banana Pro',type:'gemini',maxImages:14,paid:true,ratios:['1:1','3:2','2:3','4:3','3:4','16:9','9:16'],sizes:['1K','2K','4K']},
+  {id:'imagen-4.0-generate-001',label:'Imagen 4',type:'imagen',maxImages:0,paid:true,ratios:['1:1','3:4','4:3','9:16','16:9'],sizes:[]},
+  {id:'imagen-4.0-fast-generate-001',label:'Imagen 4 Fast',type:'imagen',maxImages:0,paid:true,ratios:['1:1','3:4','4:3','9:16','16:9'],sizes:[]},
+  {id:'imagen-4.0-ultra-generate-001',label:'Imagen 4 Ultra',type:'imagen',maxImages:0,paid:true,ratios:['1:1','3:4','4:3','9:16','16:9'],sizes:[]},
+  {id:'veo-3.1-generate-preview',label:'Veo 3.1 · video',type:'veo',maxImages:2,paid:true,ratios:['16:9','9:16'],durations:['4','6','8'],resolutions:['720p','1080p','4k']},
+];
+function nModelDef(id){return NANO_MODEL_DEFS.find(m=>m.id===id)||NANO_MODEL_DEFS[0];}
+
 const NN=10,nS=Array.from({length:NN},()=>({imgs:[],ru:null,rb:null}));
-function nRenderThumbs(i){const c=document.getElementById('ni-'+i);c.innerHTML='';nS[i].imgs.forEach((f,j)=>{const t=document.createElement('div');t.className='img-thumb';const r=new FileReader();r.onload=e=>t.style.backgroundImage='url('+e.target.result+')';r.readAsDataURL(f);const rm=document.createElement('button');rm.className='remove-img';rm.textContent='×';rm.onclick=e=>{e.stopPropagation();nS[i].imgs.splice(j,1);nRenderThumbs(i);};t.appendChild(rm);c.appendChild(t);});const ab=document.createElement('button');ab.className='add-img-btn';ab.textContent='+';ab.onclick=()=>fi.click();const fi=document.createElement('input');fi.type='file';fi.accept='image/*';fi.multiple=true;fi.style.display='none';fi.onchange=e=>{for(const f of e.target.files)nS[i].imgs.push(f);nRenderThumbs(i);};ab.appendChild(fi);c.appendChild(ab);}
-const NANO_MODELS='<option value="gemini-2.5-flash-image">2.5 Flash</option><option value="gemini-2.5-pro-image">2.5 Pro</option><option value="gemini-3-pro-image-preview">3 Pro (preview)</option><option value="gemini-2.0-flash">2.0 Flash</option>';
-function initN(){const c=document.getElementById('nano-rows');c.innerHTML='';for(let i=0;i<NN;i++){c.innerHTML+='<div class="row img-row" id="nr-'+i+'"><div class="row-num">'+(i+1)+'</div><div class="frame-box"><label>Images (optional)</label><div class="multi-img-zone" id="ni-'+i+'"></div></div><div class="prompt-settings"><textarea id="np-'+i+'" placeholder="Describe what to generate or edit..."></textarea><div class="settings-row"><select id="nm-'+i+'" style="font-size:0.8rem">'+NANO_MODELS+'</select></div></div><div class="actions"><button class="btn btn-primary btn-small" onclick="nGen('+i+')">Generate</button><div class="status" id="nst-'+i+'"></div><div class="result-area" id="nres-'+i+'"></div></div></div>';}for(let i=0;i<NN;i++){nRenderThumbs(i);const zone=document.getElementById('ni-'+i);zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');for(const f of e.dataTransfer.files){if(f.type.startsWith('image/'))nS[i].imgs.push(f);}nRenderThumbs(i);});}}
-async function nGen(i){const k=document.getElementById('n-apiKey').value.trim(),pr=document.getElementById('np-'+i).value.trim();if(!k)return setStatus('nst-'+i,'error','Enter Gemini key');if(!pr)return setStatus('nst-'+i,'error','Enter prompt');try{setStatus('nst-'+i,'generating','Generating...');const parts=[{text:pr}];for(const f of nS[i].imgs){const b=await toB64(f);parts.push({inlineData:{mimeType:f.type,data:b}});}const model=document.getElementById('nm-'+i).value;const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+k,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts}],generationConfig:{responseModalities:['TEXT','IMAGE']}})});if(!resp.ok){const et=await resp.text();throw new Error('API '+resp.status+': '+et.substring(0,100));}const d=await resp.json();if(!d.candidates||!d.candidates[0])throw new Error('No candidates returned');const allParts=d.candidates[0].content?.parts||[];const ip=allParts.find(p=>p.inlineData||p.inline_data);if(!ip){const textPart=allParts.find(p=>p.text);throw new Error(textPart?'Text only: "'+textPart.text.substring(0,80)+'"':'No image returned');}const idata=ip.inlineData||ip.inline_data;const bl=new Blob([Uint8Array.from(atob(idata.data),c=>c.charCodeAt(0))],{type:idata.mimeType||idata.mime_type});const u=URL.createObjectURL(bl);nS[i].ru=u;nS[i].rb=bl;setStatus('nst-'+i,'success','Done!');document.getElementById('nres-'+i).innerHTML='<img src="'+u+'" class="output-img" onclick="window.open(this.src)"><a href="'+u+'" download="nano_'+(i+1)+'.png" class="btn btn-success btn-small">⬇</a>';}catch(e){setStatus('nst-'+i,'error',e.message.substring(0,60));}}
+
+// Persist images to localStorage
+function nPersistImgs(i){
+  const promises=nS[i].imgs.map(f=>new Promise(res=>{const r=new FileReader();r.onload=e=>res({dataUrl:e.target.result,name:f.name,type:f.type});r.readAsDataURL(f);}));
+  Promise.all(promises).then(arr=>{
+    const json=JSON.stringify(arr);
+    if(json.length>4*1024*1024)return; // skip if >4MB
+    try{localStorage.setItem('nano-imgs-'+i,json);}catch(e){}
+  });
+}
+function nRestoreImgs(i){
+  try{
+    const raw=localStorage.getItem('nano-imgs-'+i);
+    if(!raw)return;
+    const arr=JSON.parse(raw);
+    arr.forEach(item=>{
+      const byteStr=atob(item.dataUrl.split(',')[1]);
+      const ab=new ArrayBuffer(byteStr.length);
+      const ia=new Uint8Array(ab);
+      for(let j=0;j<byteStr.length;j++)ia[j]=byteStr.charCodeAt(j);
+      const blob=new Blob([ab],{type:item.type});
+      const file=new File([blob],item.name,{type:item.type});
+      nS[i].imgs.push(file);
+    });
+  }catch(e){}
+}
+
+function nRenderThumbs(i){
+  const c=document.getElementById('ni-'+i);if(!c)return;
+  c.innerHTML='';
+  nS[i].imgs.forEach((f,j)=>{
+    const t=document.createElement('div');t.className='img-thumb';
+    const r=new FileReader();r.onload=e=>t.style.backgroundImage='url('+e.target.result+')';r.readAsDataURL(f);
+    const rm=document.createElement('button');rm.className='remove-img';rm.textContent='×';
+    rm.onclick=e=>{e.stopPropagation();nS[i].imgs.splice(j,1);nRenderThumbs(i);nPersistImgs(i);};
+    t.appendChild(rm);c.appendChild(t);
+  });
+  const md=nModelDef(document.getElementById('nm-'+i)?.value);
+  if(md&&md.maxImages>0&&nS[i].imgs.length<md.maxImages){
+    const ab=document.createElement('button');ab.className='add-img-btn';ab.textContent='+';
+    ab.onclick=()=>fi.click();
+    const fi=document.createElement('input');fi.type='file';fi.accept='image/*';fi.multiple=true;fi.style.display='none';
+    fi.onchange=e=>{for(const f of e.target.files)nS[i].imgs.push(f);nRenderThumbs(i);nPersistImgs(i);};
+    ab.appendChild(fi);c.appendChild(ab);
+  }
+}
+
+function nBuildModelOpts(){
+  return NANO_MODEL_DEFS.map(m=>'<option value="'+m.id+'">'+(m.paid?'💎 ':'')+m.label+'</option>').join('');
+}
+
+function nUpdateRowSettings(i){
+  const sel=document.getElementById('nm-'+i);if(!sel)return;
+  const md=nModelDef(sel.value);
+  // Aspect ratio
+  const arSel=document.getElementById('nar-'+i);
+  const oldAr=arSel?arSel.value:null;
+  // Size
+  const szWrap=document.getElementById('nsz-wrap-'+i);
+  // Duration
+  const durWrap=document.getElementById('ndur-wrap-'+i);
+  // Resolution
+  const resWrap=document.getElementById('nres-wrap-'+i);
+  // Rebuild aspect ratio
+  if(arSel){
+    arSel.innerHTML=md.ratios.map(r=>'<option value="'+r+'">'+r+'</option>').join('');
+    if(oldAr&&md.ratios.includes(oldAr))arSel.value=oldAr;
+  }
+  // Size dropdown (gemini only)
+  if(szWrap){
+    if(md.sizes&&md.sizes.length>0){
+      szWrap.style.display='';
+      const szSel=document.getElementById('nsz-'+i);
+      szSel.innerHTML=md.sizes.map(s=>'<option value="'+s+'">'+s+'</option>').join('');
+    } else { szWrap.style.display='none'; }
+  }
+  // Duration (veo only)
+  if(durWrap){
+    if(md.durations){
+      durWrap.style.display='';
+      const durSel=document.getElementById('ndur-'+i);
+      durSel.innerHTML=md.durations.map(d=>'<option value="'+d+'">'+d+'s</option>').join('');
+    } else { durWrap.style.display='none'; }
+  }
+  // Resolution (veo only)
+  if(resWrap){
+    if(md.resolutions){
+      resWrap.style.display='';
+      const resSel=document.getElementById('nreso-'+i);
+      resSel.innerHTML=md.resolutions.map(r=>'<option value="'+r+'">'+r+'</option>').join('');
+    } else { resWrap.style.display='none'; }
+  }
+  // Image zone visibility + hint
+  const imgBox=document.getElementById('nimgbox-'+i);
+  const imgHint=document.getElementById('nimghint-'+i);
+  if(imgBox){
+    if(md.maxImages===0){
+      imgBox.classList.add('img-zone-hidden');
+    } else {
+      imgBox.classList.remove('img-zone-hidden');
+      if(imgHint){
+        if(md.type==='veo') imgHint.textContent='1st = start frame, 2nd = end frame';
+        else imgHint.textContent='';
+      }
+    }
+  }
+  nRenderThumbs(i);
+}
+
+function initN(){
+  const c=document.getElementById('nano-rows');c.innerHTML='';
+  const modelOpts=nBuildModelOpts();
+  for(let i=0;i<NN;i++){
+    c.innerHTML+='<div class="row img-row" id="nr-'+i+'">'
+      +'<div class="row-num">'+(i+1)+'</div>'
+      +'<div class="frame-box" id="nimgbox-'+i+'"><label>Images (optional)</label>'
+      +'<div class="multi-img-zone" id="ni-'+i+'"></div>'
+      +'<div class="img-zone-hint" id="nimghint-'+i+'"></div></div>'
+      +'<div class="prompt-settings"><textarea id="np-'+i+'" placeholder="Describe what to generate or edit..."></textarea>'
+      +'<div class="nano-settings-row">'
+      +'<select id="nm-'+i+'" onchange="nUpdateRowSettings('+i+')">'+modelOpts+'</select>'
+      +'<select id="nar-'+i+'" title="Aspect ratio"></select>'
+      +'<span id="nsz-wrap-'+i+'" style="display:none"><select id="nsz-'+i+'" title="Size"></select></span>'
+      +'<span id="ndur-wrap-'+i+'" style="display:none"><select id="ndur-'+i+'" title="Duration"></select></span>'
+      +'<span id="nres-wrap-'+i+'" style="display:none"><select id="nreso-'+i+'" title="Resolution"></select></span>'
+      +'</div></div>'
+      +'<div class="actions"><button class="btn btn-primary btn-small" onclick="nGen('+i+')">Generate</button>'
+      +'<div class="status" id="nst-'+i+'"></div><div class="result-area" id="nres-'+i+'"></div></div></div>';
+  }
+  for(let i=0;i<NN;i++){
+    nRestoreImgs(i);
+    nUpdateRowSettings(i);
+    const zone=document.getElementById('ni-'+i);
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');
+      for(const f of e.dataTransfer.files){if(f.type.startsWith('image/'))nS[i].imgs.push(f);}
+      nRenderThumbs(i);nPersistImgs(i);
+    });
+  }
+}
+
+async function nGenGemini(i,k,pr,md){
+  setStatus('nst-'+i,'generating','Generating...');
+  const parts=[{text:pr}];
+  for(const f of nS[i].imgs){const b=await toB64(f);parts.push({inlineData:{mimeType:f.type,data:b}});}
+  const ar=document.getElementById('nar-'+i).value;
+  const genCfg={responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:ar}};
+  const szSel=document.getElementById('nsz-'+i);
+  if(szSel&&md.sizes.length>0)genCfg.imageConfig.imageSize=szSel.value;
+  const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+md.id+':generateContent?key='+k,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts}],generationConfig:genCfg})
+  });
+  if(!resp.ok){const et=await resp.text();throw new Error('API '+resp.status+': '+et.substring(0,100));}
+  const d=await resp.json();
+  if(!d.candidates||!d.candidates[0])throw new Error('No candidates returned');
+  const allParts=d.candidates[0].content?.parts||[];
+  const ip=allParts.find(p=>p.inlineData||p.inline_data);
+  if(!ip){const tp=allParts.find(p=>p.text);throw new Error(tp?'Text only: "'+tp.text.substring(0,80)+'"':'No image returned');}
+  const idata=ip.inlineData||ip.inline_data;
+  const bl=new Blob([Uint8Array.from(atob(idata.data),c=>c.charCodeAt(0))],{type:idata.mimeType||idata.mime_type});
+  const u=URL.createObjectURL(bl);
+  nS[i].ru=u;nS[i].rb=bl;
+  setStatus('nst-'+i,'success','Done!');
+  document.getElementById('nres-'+i).innerHTML='<img src="'+u+'" class="output-img" onclick="window.open(this.src)"><a href="'+u+'" download="nano_'+(i+1)+'.png" class="btn btn-success btn-small">⬇</a>';
+}
+
+async function nGenImagen(i,k,pr,md){
+  setStatus('nst-'+i,'generating','Generating...');
+  const ar=document.getElementById('nar-'+i).value;
+  const body={instances:[{prompt:pr}],parameters:{aspectRatio:ar,sampleCount:1}};
+  const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+md.id+':predict?key='+k,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+  });
+  if(!resp.ok){const et=await resp.text();throw new Error('API '+resp.status+': '+et.substring(0,100));}
+  const d=await resp.json();
+  if(!d.predictions||!d.predictions[0])throw new Error('No predictions returned');
+  const b64=d.predictions[0].bytesBase64Encoded;
+  if(!b64)throw new Error('No image data in response');
+  const bl=new Blob([Uint8Array.from(atob(b64),c=>c.charCodeAt(0))],{type:'image/png'});
+  const u=URL.createObjectURL(bl);
+  nS[i].ru=u;nS[i].rb=bl;
+  setStatus('nst-'+i,'success','Done!');
+  document.getElementById('nres-'+i).innerHTML='<img src="'+u+'" class="output-img" onclick="window.open(this.src)"><a href="'+u+'" download="nano_'+(i+1)+'.png" class="btn btn-success btn-small">⬇</a>';
+}
+
+async function nGenVeo(i,k,pr,md){
+  setStatus('nst-'+i,'generating','Submitting...');
+  const ar=document.getElementById('nar-'+i).value;
+  const dur=document.getElementById('ndur-'+i).value;
+  const reso=document.getElementById('nreso-'+i).value;
+  const instance={prompt:pr};
+  if(nS[i].imgs[0]){const b=await toB64(nS[i].imgs[0]);instance.image={inlineData:{mimeType:nS[i].imgs[0].type,data:b}};}
+  if(nS[i].imgs[1]){const b=await toB64(nS[i].imgs[1]);instance.lastFrame={inlineData:{mimeType:nS[i].imgs[1].type,data:b}};}
+  const body={instances:[instance],parameters:{aspectRatio:ar,resolution:reso,durationSeconds:parseInt(dur)}};
+  const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+md.id+':predictLongRunning?key='+k,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+  });
+  if(!resp.ok){const et=await resp.text();throw new Error('API '+resp.status+': '+et.substring(0,100));}
+  const op=await resp.json();
+  if(!op.name)throw new Error('No operation name returned');
+  // Poll
+  while(true){
+    await new Promise(r=>setTimeout(r,10000));
+    setStatus('nst-'+i,'generating','Polling...');
+    const pr2=await fetch('https://generativelanguage.googleapis.com/v1beta/'+op.name+'?key='+k);
+    if(!pr2.ok){const et=await pr2.text();throw new Error('Poll '+pr2.status+': '+et.substring(0,100));}
+    const st=await pr2.json();
+    if(st.done){
+      if(st.error)throw new Error(st.error.message||'Operation failed');
+      const samples=st.response?.generateVideoResponse?.generatedSamples;
+      if(!samples||!samples[0]?.video?.uri)throw new Error('No video in response');
+      const vidUri=samples[0].video.uri;
+      // Fetch video with API key header
+      setStatus('nst-'+i,'generating','Downloading video...');
+      const vResp=await fetch(vidUri,{headers:{'x-goog-api-key':k}});
+      if(!vResp.ok)throw new Error('Video fetch '+vResp.status);
+      const vBlob=await vResp.blob();
+      const vUrl=URL.createObjectURL(vBlob);
+      nS[i].ru=vUrl;nS[i].rb=vBlob;
+      setStatus('nst-'+i,'success','Done!');
+      document.getElementById('nres-'+i).innerHTML='<video src="'+vUrl+'" controls class="output-video"></video><a href="'+vUrl+'" download="nano_'+(i+1)+'.mp4" class="btn btn-success btn-small">⬇</a>';
+      return;
+    }
+  }
+}
+
+async function nGen(i){
+  const k=document.getElementById('n-apiKey').value.trim(),pr=document.getElementById('np-'+i).value.trim();
+  if(!k)return setStatus('nst-'+i,'error','Enter API key');
+  if(!pr)return setStatus('nst-'+i,'error','Enter prompt');
+  const md=nModelDef(document.getElementById('nm-'+i).value);
+  try{
+    if(md.type==='gemini')await nGenGemini(i,k,pr,md);
+    else if(md.type==='imagen')await nGenImagen(i,k,pr,md);
+    else if(md.type==='veo')await nGenVeo(i,k,pr,md);
+  }catch(e){setStatus('nst-'+i,'error',e.message.substring(0,60));}
+}
 function nanoGenerateAll(){const p=[];for(let i=0;i<NN;i++)if(document.getElementById('np-'+i).value.trim()&&!nS[i].ru)p.push(nGen(i));if(!p.length)alert('Enter prompt in at least one row');Promise.allSettled(p);}
-function nanoDownloadAll(){nS.forEach((s,i)=>{if(s.ru){const a=document.createElement('a');a.href=s.ru;a.download='nano_'+(i+1)+'.png';a.click();}});}
+function nanoDownloadAll(){nS.forEach((s,i)=>{if(s.ru){const a=document.createElement('a');a.href=s.ru;a.download='nano_'+(i+1)+(s.rb&&s.rb.type&&s.rb.type.includes('video')?'.mp4':'.png');a.click();}});}
 
 // FLUX
 const NF=10,fS=Array.from({length:NF},()=>({ru:null}));
